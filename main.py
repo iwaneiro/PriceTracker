@@ -1,56 +1,25 @@
-from playwright.sync_api import sync_playwright
-from decimal import Decimal
-import re
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from scraper import get_notino_price
 
+app = FastAPI(
+    title="Smart Web Tracker API",
+    description="API for tracking product prices in e-commerce stores",    version="1.0.0"
+)
 
-def get_notino_price(url: str):
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
-        page = browser.new_page()
+class ProductRequest(BaseModel):
+    url: str
 
-        page.goto(url)
+@app.post("/api/scrape")
+def scrape_product_price(request: ProductRequest):
+    print(f"Received request to track URL: {request.url}")
 
-        price_selector = "span[content]"
+    scraped_data = get_notino_price(request.url)
 
-        print("Oczekiwanie na załadowanie ceny...")
-        try:
-            page.wait_for_selector(price_selector, timeout=10000)
+    if not scraped_data:
+        raise HTTPException(status_code=400, detail="Failed to fetch price. Check the URL or scraper configuration.")
 
-            raw_price = page.locator(price_selector).first.get_attribute("content")
-            print(f"Znaleziono surowy tekst w atrybucie: '{raw_price}'")
-
-            # Konwertowanie ceny na grosze
-            clean_text = re.sub(r'[^\d,]', '', raw_price)
-            clean_text = clean_text.replace(',', '.')
-
-            if clean_text:
-                decimal_price = Decimal(clean_text)
-
-                final_price = int(decimal_price * 100)
-            else:
-                final_price = None
-
-            result = {
-                "url": url,
-                "price_in_cents": final_price,
-                "currency": "PLN"
-            }
-
-        except Exception as e:
-            print(f"Nie udało się znaleźć ceny. Sprawdź selektor! Szczegóły: {e}")
-            result = None
-
-        finally:
-            browser.close()
-
-        return result
-
-
-if __name__ == "__main__":
-    test_url = "https://www.notino.pl/xerjoff/erba-pura-woda-perfumowana-unisex/p-16129562/"
-
-    data = get_notino_price(test_url)
-
-    if data:
-        print("\nSukces! Zwrócone dane:")
-        print(data)
+    return {
+        "status": "success",
+        "data": scraped_data
+    }
