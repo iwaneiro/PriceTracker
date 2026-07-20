@@ -1,12 +1,12 @@
 from fastapi import FastAPI, HTTPException, Depends
-from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from scraper import get_notino_price
 from sqlalchemy import desc
+from sqlalchemy.exc import IntegrityError
 from contextlib import asynccontextmanager
 from apscheduler.schedulers.background import BackgroundScheduler
 from database import SessionLocal, engine, get_db, Base
-from models import Product, PriceHistory
+from models import Product, PriceHistory, ErrorLog
 from schemas import ProductRequest
 
 
@@ -20,11 +20,12 @@ def run_sync_job():
 
         print(f"Auto-Sync: Starting mass sync for {len(products)} products...")
         success_count = 0
+        error_count = 0
 
         for product in products:
             scraped_data = get_notino_price(product.url)
 
-            if scraped_data and scraped_data["price_in_cents"] is not None:
+            if scraped_data.get("success"):
                 new_price = PriceHistory(
                     product_id=product.id,
                     price_in_cents=scraped_data["price_in_cents"],
@@ -34,12 +35,19 @@ def run_sync_job():
                 success_count += 1
                 print(f"Auto-Sync: Successfully updated {product.url}")
             else:
-                print(f"Auto-Sync: Failed to update {product.url}")
+                new_error = ErrorLog(
+                    product_id=product.id,
+                    url=product.url,
+                    error_message=scraped_data.get("error_message", "Unknown error")
+                )
+                db.add(new_error)
+                error_count += 1
+                print(f"Auto-Sync: Failed to update {product.url} - Logged to DB")
 
         db.commit()
-        print(f"Auto-Sync: Completed! Updated {success_count}/{len(products)}")
+        print(f"Auto-Sync: Completed! {success_count} success, {error_count} errors.")
     except Exception as e:
-        print(f"Auto-Sync Error: {e}")
+        print(f"Auto-Sync Critical Error: {e}")
     finally:
         db.close()
 
@@ -63,17 +71,12 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+
 @app.post("/api/scrape")
 def scrape_product_price(request: ProductRequest, db: Session = Depends(get_db)):
     print(f"Received request to track URL: {request.url}")
 
     scraped_data = get_notino_price(request.url)
-
-    if not scraped_data or scraped_data["price_in_cents"] is None:
-        raise HTTPException(
-            status_code=400,
-            detail="Failed to fetch price. Check the URL or scraper configuration."
-        )
 
     product = db.query(Product).filter(Product.url == request.url).first()
 
@@ -81,11 +84,32 @@ def scrape_product_price(request: ProductRequest, db: Session = Depends(get_db))
         print("New product detected! Adding to database...")
         product = Product(url=request.url)
         db.add(product)
-        db.commit()
-        db.refresh(product)
+        try:
+            db.commit()
+            db.refresh(product)
+        except IntegrityError:
+            db.rollback()
+            product = db.query(Product).filter(Product.url == request.url).first()
+            print("Race condition resolved: Fetched existing product created by another request.")
     else:
         print("Product found in database. Adding new price record...")
 
+    if not scraped_data.get("success"):
+        print(f"Failed to scrape. Logging error for product: {product.url}")
+        new_error = ErrorLog(
+            product_id=product.id,
+            url=product.url,
+            error_message=scraped_data.get("error_message", "Unknown error")
+        )
+        db.add(new_error)
+        db.commit()
+
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to fetch price: {scraped_data.get('error_message')}"
+        )
+
+    print("Product scraped successfully. Adding new price record...")
     new_price_record = PriceHistory(
         product_id=product.id,
         price_in_cents=scraped_data["price_in_cents"],

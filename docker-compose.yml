@@ -5,9 +5,9 @@ services:
     container_name: price_tracker_db
     restart: always
     environment:
-      POSTGRES_USER: tracker_user
-      POSTGRES_PASSWORD: tracker_password
-      POSTGRES_DB: price_tracker
+      POSTGRES_USER: ${POSTGRES_USER:-tracker_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tracker_password}
+      POSTGRES_DB: ${POSTGRES_DB:-price_tracker}
     ports:
       - "5432:5432"
     volumes:
