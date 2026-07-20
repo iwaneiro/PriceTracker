@@ -2,10 +2,12 @@ from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from scraper import get_notino_price
-from database import SessionLocal, Product, PriceHistory, init_db
 from sqlalchemy import desc
 from contextlib import asynccontextmanager
 from apscheduler.schedulers.background import BackgroundScheduler
+from database import SessionLocal, engine, get_db, Base
+from models import Product, PriceHistory
+from schemas import ProductRequest
 
 
 def run_sync_job():
@@ -44,10 +46,10 @@ def run_sync_job():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    init_db()
+    Base.metadata.create_all(bind=engine)
 
     scheduler = BackgroundScheduler()
-    scheduler.add_job(run_sync_job, 'interval', minutes=2)
+    scheduler.add_job(run_sync_job, 'interval', hours=2)
     scheduler.start()
 
     yield
@@ -60,18 +62,6 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
-
-class ProductRequest(BaseModel):
-    url: str
-
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
 
 @app.post("/api/scrape")
 def scrape_product_price(request: ProductRequest, db: Session = Depends(get_db)):
