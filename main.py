@@ -8,6 +8,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from database import SessionLocal, engine, get_db, Base
 from models import Product, PriceHistory, ErrorLog
 from schemas import ProductRequest
+from fastapi.middleware.cors import CORSMiddleware
 
 
 def run_sync_job():
@@ -69,6 +70,14 @@ app = FastAPI(
     description="API for tracking product prices in e-commerce stores",
     version="1.0.0",
     lifespan=lifespan
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
