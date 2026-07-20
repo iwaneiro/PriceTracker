@@ -16,7 +16,7 @@ class Product(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     url: Mapped[str] = mapped_column(String(2000), unique=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow())
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     price_history: Mapped[List["PriceHistory"]] = relationship(
         "PriceHistory", back_populates="product", cascade="all, delete-orphan"

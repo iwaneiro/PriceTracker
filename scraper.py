@@ -8,13 +8,13 @@ def get_notino_price(url: str):
         browser = p.chromium.launch(headless=False)
         page = browser.new_page()
 
-        print(f"Navigating to Notino: {url}")
-        page.goto(url)
-
-        price_selector = "span[content]"
-
-        print("Loading prices...")
         try:
+            print(f"Navigating to Notino: {url}")
+            page.goto(url)
+
+            price_selector = "span[content]"
+
+            print("Loading prices...")
             page.wait_for_selector(price_selector, timeout=10000)
 
             raw_price = page.locator(price_selector).first.get_attribute("content")
