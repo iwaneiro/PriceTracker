@@ -9,8 +9,9 @@ load_dotenv()
 db_user = os.getenv("POSTGRES_USER", "tracker_user")
 db_pass = os.getenv("POSTGRES_PASSWORD", "tracker_password")
 db_name = os.getenv("POSTGRES_DB", "price_tracker")
+db_host = os.getenv("POSTGRES_HOST", "localhost")
 
-SQLALCHEMY_DATABASE_URL = f"postgresql://{db_user}:{db_pass}@localhost:5432/{db_name}"
+SQLALCHEMY_DATABASE_URL = f"postgresql://{db_user}:{db_pass}@{db_host}:5432/{db_name}"
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
