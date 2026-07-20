@@ -1,38 +1,25 @@
-import uuid
-from datetime import datetime
-from typing import List
-from sqlalchemy import ForeignKey, String, DateTime, create_engine
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
+import os
+from dotenv import load_dotenv
+from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 
-DATABASE_URL = "postgresql://tracker_user:tracker_password@localhost:5432/price_tracker"
-engine = create_engine(DATABASE_URL)
+load_dotenv()
+
+db_user = os.getenv("POSTGRES_USER", "tracker_user")
+db_pass = os.getenv("POSTGRES_PASSWORD", "tracker_password")
+db_name = os.getenv("POSTGRES_DB", "price_tracker")
+db_host = os.getenv("POSTGRES_HOST", "localhost")
+
+SQLALCHEMY_DATABASE_URL = f"postgresql://{db_user}:{db_pass}@{db_host}:5432/{db_name}"
+
+engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
 
-class Base(DeclarativeBase):
-    pass
-
-class Product(Base):
-    __tablename__ = "products"
-
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    url: Mapped[str] = mapped_column(String(2000), unique=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-
-    price_history: Mapped[List["PriceHistory"]] = relationship(
-        "PriceHistory", back_populates="product", cascade="all, delete-orphan"
-    )
-
-class PriceHistory(Base):
-    __tablename__ = "price_history"
-
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    product_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("products.id"), nullable=False)
-
-    price_in_cents: Mapped[int] = mapped_column(nullable=False)
-    currency: Mapped[str] = mapped_column(String(10), default="PLN")
-    scraped_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-
-    product: Mapped["Product"] = relationship("Product", back_populates="price_history")
-
-def init_db():
-    Base.metadata.create_all(bind=engine)
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

@@ -1,17 +1,35 @@
-
 services:
   db:
     image: postgres:15-alpine
     container_name: price_tracker_db
     restart: always
     environment:
-      POSTGRES_USER: tracker_user
-      POSTGRES_PASSWORD: tracker_password
-      POSTGRES_DB: price_tracker
+      POSTGRES_USER: ${POSTGRES_USER:-tracker_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tracker_password}
+      POSTGRES_DB: ${POSTGRES_DB:-price_tracker}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tracker_user} -d ${POSTGRES_DB:-price_tracker}"]
+      interval: 2s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    container_name: price_tracker_api
+    restart: always
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      POSTGRES_HOST: db
 
 volumes:
   postgres_data:
