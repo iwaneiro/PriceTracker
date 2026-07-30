@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Depends
 from sqlalchemy.orm import Session
 from scraper import get_notino_price
 from sqlalchemy import desc
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from contextlib import asynccontextmanager
 from apscheduler.schedulers.background import BackgroundScheduler
 from database import SessionLocal, engine, get_db, Base
@@ -24,28 +24,44 @@ def run_sync_job():
         error_count = 0
 
         for product in products:
-            scraped_data = get_notino_price(product.url)
+            try:
+                scraped_data = get_notino_price(product.url)
 
-            if scraped_data.get("success"):
-                new_price = PriceHistory(
-                    product_id=product.id,
-                    price_in_cents=scraped_data["price_in_cents"],
-                    currency=scraped_data["currency"]
-                )
-                db.add(new_price)
-                success_count += 1
-                print(f"Auto-Sync: Successfully updated {product.url}")
-            else:
-                new_error = ErrorLog(
-                    product_id=product.id,
-                    url=product.url,
-                    error_message=scraped_data.get("error_message", "Unknown error")
-                )
-                db.add(new_error)
+                if scraped_data.get("success"):
+                    new_price = PriceHistory(
+                        product_id=product.id,
+                        price_in_cents=scraped_data["price_in_cents"],
+                        currency=scraped_data["currency"]
+                    )
+                    db.add(new_price)
+                    try:
+                        db.commit()
+                        success_count += 1
+                        print(f"Auto-Sync: Successfully updated {product.url}")
+                    except IntegrityError:
+                        # Race condition: równoległy job lub request zdążył już zapisać ten rekord.
+                        db.rollback()
+                        success_count += 1
+                        print(f"Auto-Sync: IntegrityError (race condition) for {product.url} - skipped duplicate.")
+                else:
+                    new_error = ErrorLog(
+                        product_id=product.id,
+                        url=product.url,
+                        error_message=scraped_data.get("error_message", "Unknown error")
+                    )
+                    db.add(new_error)
+                    try:
+                        db.commit()
+                    except SQLAlchemyError:
+                        db.rollback()
+                    error_count += 1
+                    print(f"Auto-Sync: Failed to update {product.url} - Logged to DB")
+            except Exception as e:
+                # Izolacja błędów per-produkt: jeden nieudany scraping nie zatrzymuje całej pętli.
+                db.rollback()
                 error_count += 1
-                print(f"Auto-Sync: Failed to update {product.url} - Logged to DB")
+                print(f"Auto-Sync: Unexpected error for {product.url}: {e}")
 
-        db.commit()
         print(f"Auto-Sync: Completed! {success_count} success, {error_count} errors.")
     except Exception as e:
         print(f"Auto-Sync Critical Error: {e}")
@@ -151,3 +167,35 @@ def get_all_products(db: Session = Depends(get_db)):
 def trigger_manual_sync():
     run_sync_job()
     return {"status": "success", "message": "Manual sync completed."}
+
+
+@app.get("/api/products/{product_id}/history")
+def get_product_history(product_id: str, db: Session = Depends(get_db)):
+    history_entries = db.query(PriceHistory).filter(PriceHistory.product_id == product_id).order_by(
+        PriceHistory.scraped_at.asc()).all()
+
+    if not history_entries:
+        return {"status": "success", "data": []}
+
+    data = [
+        {
+            "price_in_cents": entry.price_in_cents,
+            "checked_at": entry.scraped_at.isoformat()
+        }
+        for entry in history_entries
+    ]
+
+    return {"status": "success", "data": data}
+
+
+@app.delete("/api/products/{product_id}")
+def delete_product(product_id: str, db: Session = Depends(get_db)):
+    product = db.query(Product).filter(Product.id == product_id).first()
+
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found.")
+
+    db.delete(product)
+    db.commit()
+
+    return {"status": "success", "message": "Product deleted."}

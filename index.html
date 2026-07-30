@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tropiciel cen</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --ink: #1c1917;
+    --ink-soft: #57534e;
+    --ink-muted: #a8a29e;
+    --line: #e7e5e4;
+    --bg-soft: #fafaf9;
+    --accent: #1c4b3f;
+    --accent-hover: #163c33;
+    --down: #047857;
+    --up: #be123c;
+    --down-bg: #ecfdf5;
+    --up-bg: #fff1f2;
+    --danger-bg: #fef2f2;
+    --danger-text: #b91c1c;
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #ffffff;
+    color: var(--ink);
+  }
+  .wrap {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 48px 20px 80px;
+  }
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+  .header .icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .header .icon svg { width: 18px; height: 18px; stroke: white; }
+  .header h1 { font-size: 18px; font-weight: 600; margin: 0; }
+  .header p { font-size: 14px; color: var(--ink-muted); margin: 2px 0 0; }
+
+  .add-form {
+    display: flex;
+    gap: 8px;
+    background: var(--bg-soft);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+  }
+  .add-form input {
+    flex: 1;
+    min-width: 200px;
+    padding: 10px 14px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    font-size: 14px;
+    background: white;
+  }
+  .add-form input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+  .add-form button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 18px;
+    border: none;
+    border-radius: 10px;
+    background: var(--accent);
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .add-form button:hover { background: var(--accent-hover); }
+  .add-form button:disabled { opacity: 0.6; cursor: default; }
+  .form-error { width: 100%; font-size: 13px; color: var(--danger-text); margin-top: -4px; }
+
+  .state-msg {
+    text-align: center;
+    padding: 64px 20px;
+    color: var(--ink-muted);
+    font-size: 14px;
+  }
+  .empty-state {
+    text-align: center;
+    padding: 64px 20px;
+    border: 1px dashed var(--line);
+    border-radius: var(--radius);
+  }
+  .empty-state p:first-child { font-weight: 500; color: var(--ink-soft); margin: 0; }
+  .empty-state p:last-child { color: var(--ink-muted); font-size: 14px; margin: 6px 0 0; }
+
+  .error-banner {
+    border: 1px solid #fecaca;
+    background: var(--danger-bg);
+    color: var(--danger-text);
+    border-radius: 12px;
+    padding: 14px 16px;
+    font-size: 14px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 12px;
+  }
+  .card {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 16px;
+    background: white;
+    cursor: pointer;
+    transition: border-color 0.15s;
+    position: relative;
+  }
+  .card:hover { border-color: #d6d3d1; }
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .card-title { min-width: 0; }
+  .card-title p:first-child {
+    font-size: 14px;
+    font-weight: 500;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .card-title p:last-child {
+    font-size: 12px;
+    color: var(--ink-muted);
+    margin: 2px 0 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .delete-btn {
+    flex-shrink: 0;
+    border: none;
+    background: none;
+    color: #d6d3d1;
+    padding: 6px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+  }
+  .card:hover .delete-btn { color: #a8a29e; }
+  .delete-btn:hover { background: var(--danger-bg); color: var(--danger-text) !important; }
+  .delete-btn svg { width: 16px; height: 16px; }
+
+  .price-row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-top: 12px;
+  }
+  .price { font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .trend { font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; }
+  .trend.down { color: var(--down); }
+  .trend.up { color: var(--up); }
+  .trend.flat { color: var(--ink-muted); }
+  .trend svg { width: 14px; height: 14px; }
+
+  .spark-wrap { height: 36px; margin-top: 8px; }
+  .spark-empty { font-size: 12px; color: var(--ink-muted); padding-top: 10px; }
+
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(28, 25, 23, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 10;
+  }
+  .modal {
+    background: white;
+    border-radius: 20px;
+    padding: 24px;
+    width: 100%;
+    max-width: 640px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.15);
+  }
+  .modal-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .modal-top p:first-child {
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--ink-muted);
+    margin: 0;
+  }
+  .modal-top p:last-child {
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin: 2px 0 0;
+    word-break: break-all;
+  }
+  .modal-close {
+    border: none;
+    background: none;
+    color: var(--ink-muted);
+    padding: 6px;
+    border-radius: 999px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .modal-close:hover { background: var(--bg-soft); color: var(--ink); }
+  .chart-box { height: 280px; margin-top: 20px; position: relative; }
+  .chart-msg { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--ink-muted); font-size: 14px; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="header">
+    <div class="icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h10M9 3v6l-5 9a2 2 0 0 0 2 3h12a2 2 0 0 0 2-3l-5-9V3"/></svg>
+    </div>
+    <div>
+      <h1>Tropiciel cen</h1>
+      <p>Pilnuje cen Twoich perfum, żebyś Ty nie musiał.</p>
+    </div>
+  </div>
+
+  <form class="add-form" id="add-form">
+    <input type="text" id="url-input" placeholder="https://www.notino.pl/..." autocomplete="off">
+    <button type="submit" id="add-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" width="16" height="16"><path d="M12 5v14M5 12h14"/></svg>
+      <span id="add-btn-label">Zacznij śledzić</span>
+    </button>
+    <div class="form-error" id="form-error" style="display:none;"></div>
+  </form>
+
+  <div id="content"></div>
+</div>
+
+<div id="modal-root"></div>
+
+<script>
+const API_BASE = "http://localhost:8000";
+
+const state = {
+  products: [],
+  loading: true,
+  loadError: null,
+};
+
+const contentEl = document.getElementById("content");
+const modalRoot = document.getElementById("modal-root");
+const addForm = document.getElementById("add-form");
+const urlInput = document.getElementById("url-input");
+const addBtn = document.getElementById("add-btn");
+const addBtnLabel = document.getElementById("add-btn-label");
+const formError = document.getElementById("form-error");
+
+function formatPLN(cents) {
+  if (cents === null || cents === undefined) return "—";
+  return (cents / 100).toLocaleString("pl-PL", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " zł";
+}
+
+function formatDate(iso) {
+  return new Date(iso).toLocaleDateString("pl-PL", { day: "2-digit", month: "short" });
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function iconTrash() {
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>';
+}
+
+function iconTrend(direction) {
+  if (direction === "down") return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 17 13.5 8.5 8.5 13.5 2 7M16 17h6v-6"/></svg>';
+  if (direction === "up") return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 7 13.5 15.5 8.5 10.5 2 17M16 7h6v6"/></svg>';
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/></svg>';
+}
+
+async function fetchHistory(productId) {
+  const res = await fetch(`${API_BASE}/api/products/${productId}/history`);
+  if (!res.ok) throw new Error("Nie udało się pobrać historii.");
+  const json = await res.json();
+  return (json.data || []).map((e) => ({ price: e.price_in_cents / 100, date: e.checked_at }));
+}
+
+async function loadProducts() {
+  state.loading = true;
+  state.loadError = null;
+  render();
+  try {
+    const res = await fetch(`${API_BASE}/api/products`);
+    if (!res.ok) throw new Error("Nie udało się połączyć z API.");
+    const json = await res.json();
+    state.products = json.data || [];
+  } catch (err) {
+    state.loadError = err.message;
+  } finally {
+    state.loading = false;
+    render();
+  }
+}
+
+async function handleAdd(url) {
+  addBtn.disabled = true;
+  addBtnLabel.textContent = "Sprawdzam cenę...";
+  formError.style.display = "none";
+  try {
+    const res = await fetch(`${API_BASE}/api/scrape`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.detail || "Nie udało się dodać produktu.");
+    urlInput.value = "";
+    await loadProducts();
+  } catch (err) {
+    formError.textContent = err.message;
+    formError.style.display = "block";
+  } finally {
+    addBtn.disabled = false;
+    addBtnLabel.textContent = "Zacznij śledzić";
+  }
+}
+
+async function handleDelete(id) {
+  try {
+    const res = await fetch(`${API_BASE}/api/products/${id}`, { method: "DELETE" });
+    if (!res.ok) throw new Error("Nie udało się usunąć produktu.");
+    state.products = state.products.filter((p) => p.id !== id);
+    render();
+  } catch (err) {
+    state.loadError = err.message;
+    render();
+  }
+}
+
+function pathLabel(url) {
+  try {
+    const u = new URL(url);
+    const parts = u.pathname.split("/").filter(Boolean).slice(0, 2).join(" / ");
+    return parts || url;
+  } catch (e) {
+    return url;
+  }
+}
+
+function render() {
+  if (state.loading) {
+    contentEl.innerHTML = `<div class="state-msg">Ładuję śledzone produkty...</div>`;
+    return;
+  }
+  if (state.loadError) {
+    contentEl.innerHTML = `<div class="error-banner">${escapeHtml(state.loadError)}. Upewnij się, że API działa pod adresem ${API_BASE}.</div>`;
+    return;
+  }
+  if (state.products.length === 0) {
+    contentEl.innerHTML = `
+      <div class="empty-state">
+        <p>Jeszcze nic nie śledzisz.</p>
+        <p>Wklej link do produktu z Notino powyżej, żeby zacząć.</p>
+      </div>`;
+    return;
+  }
+
+  contentEl.innerHTML = `<div class="grid">${state.products.map((p) => `
+    <div class="card" data-id="${p.id}" data-url="${escapeHtml(p.url)}">
+      <div class="card-top">
+        <div class="card-title">
+          <p title="${escapeHtml(p.url)}">${escapeHtml(pathLabel(p.url))}</p>
+          <p title="${escapeHtml(p.url)}">${escapeHtml(p.url)}</p>
+        </div>
+        <button class="delete-btn" data-delete-id="${p.id}" aria-label="Usuń z listy śledzonych">${iconTrash()}</button>
+      </div>
+      <div class="price-row">
+        <span class="price">${formatPLN(p.latest_price)}</span>
+        <span class="trend flat" id="trend-${p.id}">${iconTrend("flat")} —</span>
+      </div>
+      <div class="spark-wrap" id="spark-wrap-${p.id}">
+        <canvas id="spark-${p.id}"></canvas>
+      </div>
+    </div>
+  `).join("")}</div>`;
+
+  document.querySelectorAll(".card").forEach((card) => {
+    card.addEventListener("click", (e) => {
+      if (e.target.closest(".delete-btn")) return;
+      openHistoryModal(card.dataset.id, card.dataset.url);
+    });
+  });
+  document.querySelectorAll(".delete-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      handleDelete(btn.dataset.deleteId);
+    });
+  });
+
+  state.products.forEach((p) => loadSparkline(p.id));
+}
+
+async function loadSparkline(productId) {
+  const wrap = document.getElementById(`spark-wrap-${productId}`);
+  const trendEl = document.getElementById(`trend-${productId}`);
+  if (!wrap) return;
+  try {
+    const history = await fetchHistory(productId);
+    if (history.length < 2) {
+      wrap.innerHTML = `<div class="spark-empty">Za mało danych na wykres</div>`;
+      return;
+    }
+    const canvas = document.getElementById(`spark-${productId}`);
+    if (!canvas) return;
+    new Chart(canvas, {
+      type: "line",
+      data: {
+        labels: history.map((h) => h.date),
+        datasets: [{ data: history.map((h) => h.price), borderColor: "#1c4b3f", borderWidth: 2, pointRadius: 0, tension: 0.3 }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+        scales: { x: { display: false }, y: { display: false } },
+      },
+    });
+
+    const diff = history[history.length - 1].price - history[history.length - 2].price;
+    if (diff === 0) {
+      trendEl.className = "trend flat";
+      trendEl.innerHTML = `${iconTrend("flat")} bez zmian`;
+    } else if (diff < 0) {
+      trendEl.className = "trend down";
+      trendEl.innerHTML = `${iconTrend("down")} ${diff.toFixed(2)} zł`;
+    } else {
+      trendEl.className = "trend up";
+      trendEl.innerHTML = `${iconTrend("up")} +${diff.toFixed(2)} zł`;
+    }
+  } catch (e) {
+    wrap.innerHTML = `<div class="spark-empty">Nie udało się wczytać wykresu</div>`;
+  }
+}
+
+let historyChartInstance = null;
+
+async function openHistoryModal(productId, url) {
+  modalRoot.innerHTML = `
+    <div class="modal-overlay" id="modal-overlay">
+      <div class="modal">
+        <div class="modal-top">
+          <div>
+            <p>Historia cen</p>
+            <p>${escapeHtml(url)}</p>
+          </div>
+          <button class="modal-close" id="modal-close" aria-label="Zamknij">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="18" height="18"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="chart-box" id="chart-box">
+          <div class="chart-msg">Ładuję historię...</div>
+        </div>
+      </div>
+    </div>`;
+
+  document.getElementById("modal-overlay").addEventListener("click", (e) => {
+    if (e.target.id === "modal-overlay") closeModal();
+  });
+  document.getElementById("modal-close").addEventListener("click", closeModal);
+
+  const chartBox = document.getElementById("chart-box");
+  try {
+    const history = await fetchHistory(productId);
+    if (history.length < 2) {
+      chartBox.innerHTML = `<div class="chart-msg">Za mało punktów danych, żeby narysować wykres. Wróć po kolejnym sprawdzeniu ceny.</div>`;
+      return;
+    }
+    chartBox.innerHTML = `<canvas id="history-canvas" role="img" aria-label="Wykres historii ceny produktu"></canvas>`;
+    const ctx = document.getElementById("history-canvas");
+    if (historyChartInstance) historyChartInstance.destroy();
+    historyChartInstance = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: history.map((h) => formatDate(h.date)),
+        datasets: [{
+          label: "Cena",
+          data: history.map((h) => h.price),
+          borderColor: "#1c4b3f",
+          backgroundColor: "rgba(28,75,63,0.08)",
+          borderWidth: 2.5,
+          pointRadius: 3,
+          pointBackgroundColor: "#1c4b3f",
+          fill: true,
+          tension: 0.25,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: (ctx) => `${ctx.parsed.y.toFixed(2)} zł` } },
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: "#a8a29e", font: { size: 12 } } },
+          y: { grid: { color: "#e7e5e4" }, ticks: { color: "#a8a29e", font: { size: 12 }, callback: (v) => `${v} zł` } },
+        },
+      },
+    });
+  } catch (err) {
+    chartBox.innerHTML = `<div class="chart-msg">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function closeModal() {
+  if (historyChartInstance) { historyChartInstance.destroy(); historyChartInstance = null; }
+  modalRoot.innerHTML = "";
+}
+
+addForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const url = urlInput.value.trim();
+  if (!url) {
+    formError.textContent = "Podaj adres produktu.";
+    formError.style.display = "block";
+    return;
+  }
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(url);
+  } catch {
+    formError.textContent = "Podany tekst nie jest prawidłowym adresem URL.";
+    formError.style.display = "block";
+    return;
+  }
+  if (!parsedUrl.hostname.includes("notino.")) {
+    formError.textContent = "Podaj link do produktu z serwisu Notino (np. notino.pl).";
+    formError.style.display = "block";
+    return;
+  }
+  handleAdd(url);
+});
+
+loadProducts();
+</script>
+</body>
+</html>

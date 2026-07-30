@@ -30,6 +30,8 @@ services:
       - .env
     environment:
       POSTGRES_HOST: db
+    volumes:
+      - ./debug:/app/debug
 
 volumes:
   postgres_data:
