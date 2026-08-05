@@ -1,49 +1,47 @@
 # Smart Price Tracker
 
-Automatyczna aplikacja webowa do monitorowania cen produktów w sklepach internetowych (np. Notino.pl) z intuicyjnym interfejsem graficznym i interaktywnymi wykresami historii zmian cen.
+An automated web application for tracking e-commerce product prices (e.g., Notino) featuring an intuitive UI and interactive price history charts.
 
 ---
 
-## Główna funkcjonalność
+## Key Features
 
-* **Automatyczne pobieranie cen (Scraping):** Wykorzystuje bibliotekę `curl_cffi` z natywną impersonacją kryptograficznych podpisów TLS/JA3 prawdziwych przeglądarek (Chrome / Safari) oraz `BeautifulSoup4`, co pozwala na błyskawiczne pobieranie danych i omijanie systemów Anti-Bot (np. Cloudflare Turnstile) bez konieczności uruchamiania ciężkich przeglądarek.
-* **Interaktywne wykresy historii cen:** Wykresy liniowe generowane przy pomocy **Chart.js** – zarówno na kartach produktów (mini-wykresy *sparkline* z trendem zmiany ceny), jak i w szczegółowym oknie modalnym.
-* **Cykliczna synchronizacja w tle:** Zintegrowany harmonogram **APScheduler** automatycznie sprawdza i zapisuje aktualne ceny wszystkich śledzonych produktów co 2 godziny.
-* **Odporność na błędy i Race Conditions:** Bezpieczny zapis do bazy PostgreSQL z automatyczną obsługą konfliktów (`IntegrityError`) oraz logowaniem błędów scrapowania do osobnej tabeli (`ErrorLog`).
-* **Czysty interfejs (Vanilla JS/CSS):** Lekki frontend bez konieczności budowania czy instalowania ciężkich frameworków – gotowy do działania od razu po uruchomieniu serwera API.
+* **Automated Price Scraping:** Uses `curl_cffi` with native TLS/JA3 cryptographic fingerprint impersonation (Chrome/Safari) and `BeautifulSoup4`, enabling lightning-fast data extraction and bypassing Anti-Bot systems (e.g., Cloudflare Turnstile) without running heavy headless browsers.
+* **Interactive Price History Charts:** Line charts generated with **Chart.js** — displayed both as mini sparkline trend indicators on product cards and in a detailed modal view.
+* **Background Synchronization:** An integrated **APScheduler** background job automatically checks and records current prices for all tracked products every 2 hours.
+* **Fault Tolerance & Race Condition Handling:** Safe PostgreSQL writes with automatic database conflict resolution (`IntegrityError`) and dedicated scraping error logging (`ErrorLog`).
+* **Clean UI (Vanilla JS/CSS):** A lightweight frontend served directly from the FastAPI backend with no build step or heavy frameworks required — ready to run immediately after container startup.
+---
+
+## Tech Stack
+
+| Layer | Technologies |
+| :--- | :--- |
+| **Backend API** | Python 3.12, FastAPI, SQLAlchemy, Pydantic, Uvicorn |
+| **Scraper** | `curl_cffi` (Chrome/Safari TLS impersonation) & `BeautifulSoup4` |
+| **Database** | PostgreSQL 15 (Alpine) |
+| **Background Jobs** | APScheduler (BackgroundScheduler) |
+| **Frontend** | HTML5, CSS3, Vanilla JavaScript, Chart.js 4.4 |
+| **Infrastructure** | Docker & Docker Compose |
 
 ---
 
-## Stack technologiczny
+## Quick Start
 
-| Warstwa | Technologie                                                 |
-| :--- |:------------------------------------------------------------|
-| **Backend API** | Python 3.12, FastAPI, SQLAlchemy, Pydantic, Uvicorn         |
-| **Scraper** | curl_cffi (impersonacja TLS Chrome/Safari) & BeautifulSoup4 |
-| **Baza danych** | PostgreSQL 15 (Alpine)                                      |
-| **Zadania w tle** | APScheduler (BackgroundScheduler)                           |
-| **Frontend** | HTML5, CSS3, Vanilla JavaScript, Chart.js 4.4               |
-| **Infrastruktura** | Docker & Docker Compose                                     |
+### Prerequisites
 
----
+* **Docker** and **Docker Compose** installed.
+  
+### 1. Run the Application
 
-## Szybki start
-
-### Wymagania wstępne
-
-* Zainstalowany **Docker** oraz **Docker Compose**.
-
-### 1. Uruchomienie aplikacji
-
-W głównym katalogu projektu uruchom kontenery:
+In the root directory of the project, start the containers in the background:
 
 ```bash
 docker compose up --build -d
 ```
 
-### 2. Otwórz aplikację w przeglądarce
+### 2. Open in Your Browser
+Once the build is complete, access the application at:
 
-Po zakończeniu budowania przejdź do jednego z poniższych adresów:
-
-* 🌐 **Tropiciel cen:** http://localhost:8000
-* 📖 **Dokumentacja API (Swagger):** http://localhost:8000/docs
+* 🌐 **Price tracker UI:** http://localhost:8000
+* 📖 **API Documentation (Swagger):** http://localhost:8000/docs
