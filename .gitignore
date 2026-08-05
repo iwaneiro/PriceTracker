@@ -2,3 +2,7 @@
 .env
 .venv/
 __pycache__/
+*.pyc
+.idea/
+debug/
+.DS_Store
