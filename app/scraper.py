@@ -141,10 +141,15 @@ def get_notino_price(url: str):
         if not price_in_cents:
             match = re.search(r'"price"\s*:\s*(\d+[\d.]*)', response.text)
             if match:
-                price_in_cents = int(Decimal(match.group(1)) * 100)
-                print(
-                    f"Scraper: Znaleziono cenę ({price_in_cents/100} zł) w kodzie JS strony"
-                )
+                try:
+                    val = int(Decimal(match.group(1)) * 100)
+                    if 100 <= val <= 2000000:
+                        price_in_cents = val
+                        print(
+                            f"Scraper: Znaleziono cenę ({price_in_cents / 100} zł) w kodzie JS"
+                        )
+                except Exception:
+                    pass
 
         if not price_in_cents:
             raise ValueError("Nie udało się wyciągnąć ceny z pobranego kodu strony.")

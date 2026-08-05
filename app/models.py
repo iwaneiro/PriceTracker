@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import uuid
-from database import Base
+from .database import Base
 
 class Product(Base):
     __tablename__ = "products"

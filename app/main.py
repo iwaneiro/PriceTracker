@@ -1,14 +1,16 @@
 from fastapi import FastAPI, HTTPException, Depends
 from sqlalchemy.orm import Session
-from scraper import get_notino_price
-from sqlalchemy import desc
+from .scraper import get_notino_price
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from contextlib import asynccontextmanager
 from apscheduler.schedulers.background import BackgroundScheduler
-from database import SessionLocal, engine, get_db, Base
-from models import Product, PriceHistory, ErrorLog
-from schemas import ProductRequest
+from .database import SessionLocal, engine, get_db, Base
+from .models import Product, PriceHistory, ErrorLog
+from .schemas import ProductRequest
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+import os
 
 
 def run_sync_job():
@@ -152,15 +154,35 @@ def scrape_product_price(request: ProductRequest, db: Session = Depends(get_db))
 
 @app.get("/api/products")
 def get_all_products(db: Session = Depends(get_db)):
-    products = db.query(Product).all()
-    result = []
-    for product in products:
-        latest_price = db.query(PriceHistory).filter(PriceHistory.product_id == product.id).order_by(desc(PriceHistory.scraped_at)).first()
-        result.append({
+    subquery = (
+        db.query(
+            PriceHistory.product_id,
+            func.max(PriceHistory.scraped_at).label("max_time"),
+        )
+        .group_by(PriceHistory.product_id)
+        .subquery()
+    )
+
+    latest_prices = (
+        db.query(Product, PriceHistory.price_in_cents)
+        .outerjoin(subquery, Product.id == subquery.c.product_id)
+        .outerjoin(
+            PriceHistory,
+            (PriceHistory.product_id == Product.id)
+            & (PriceHistory.scraped_at == subquery.c.max_time),
+        )
+        .all()
+    )
+
+    result = [
+        {
             "id": str(product.id),
             "url": product.url,
-            "latest_price": latest_price.price_in_cents if latest_price else None,
-        })
+            "latest_price": price,
+        }
+        for product, price in latest_prices
+    ]
+
     return {"status": "success", "data": result}
 
 @app.post("/api/sync")
@@ -199,3 +221,7 @@ def delete_product(product_id: str, db: Session = Depends(get_db)):
     db.commit()
 
     return {"status": "success", "message": "Product deleted."}
+
+
+if os.path.isdir("static"):
+    app.mount("/", StaticFiles(directory="static", html=True), name="static")
